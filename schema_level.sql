@@ -9,8 +9,12 @@ CREATE DATABASE pos_ddb;
 -- ==================================================
 -- 0. Extensions
 -- ==================================================
-CREATE EXTENSION IF NOT EXISTS pgcrypto; -- for unique_id or security
-CREATE EXTENSION IF NOT EXISTS pg_stat_statements; -- for monitoring
+CREATE EXTENSION IF NOT EXISTS pgcrypto; -- gen_random_uuid, password hashes
+
+-- pg_stat_statements is optional monitoring. Do not create it here:
+-- it errors unless shared_preload_libraries already loads it.
+-- After a restart with that setting:
+--   CREATE EXTENSION IF NOT EXISTS pg_stat_statements;
 
 -- ==================================================
 -- 1. Schemas
@@ -210,21 +214,55 @@ DO $$
 DECLARE
   node_schema TEXT;
   table_name TEXT;
+  con RECORD;
 BEGIN
   FOREACH node_schema IN ARRAY ARRAY['karachi', 'lahore'] LOOP
     FOREACH table_name IN ARRAY ARRAY[
       'stores', 'categories', 'roles', 'products', 'suppliers',
       'customers', 'orders', 'order_items', 'payments', 'inventory'
     ] LOOP
-      EXECUTE format(
-        'CREATE TABLE IF NOT EXISTS %I.%I (LIKE central.%I INCLUDING DEFAULTS INCLUDING CONSTRAINTS)',
-        node_schema, table_name, table_name
-      );
-      EXECUTE format(
-        'CREATE UNIQUE INDEX IF NOT EXISTS %I ON %I.%I (id)',
-        node_schema || '_' || lower(table_name) || '_id_uidx',
-        node_schema, table_name
-      );
+      IF to_regclass(format('%I.%I', node_schema, table_name)) IS NULL THEN
+        -- INCLUDING INDEXES copies primary keys and unique keys.
+        -- Foreign keys are never copied by LIKE.
+        EXECUTE format(
+          'CREATE TABLE %I.%I (LIKE central.%I INCLUDING DEFAULTS INCLUDING CONSTRAINTS INCLUDING INDEXES)',
+          node_schema, table_name, table_name
+        );
+      ELSE
+        -- Older scripts created only a plain unique index on id.
+        -- Drop it before adding the real primary key, or ON CONFLICT (id)
+        -- becomes ambiguous.
+        EXECUTE format(
+          'DROP INDEX IF EXISTS %I.%I',
+          node_schema,
+          node_schema || '_' || table_name || '_id_uidx'
+        );
+
+        FOR con IN
+          SELECT pg_get_constraintdef(c.oid) AS def
+          FROM pg_constraint c
+          JOIN pg_class rel ON rel.oid = c.conrelid
+          JOIN pg_namespace nsp ON nsp.oid = rel.relnamespace
+          WHERE nsp.nspname = 'central'
+            AND rel.relname = table_name
+            AND c.contype IN ('p', 'u')
+        LOOP
+          IF NOT EXISTS (
+            SELECT 1
+            FROM pg_constraint existing
+            JOIN pg_class rel ON rel.oid = existing.conrelid
+            JOIN pg_namespace nsp ON nsp.oid = rel.relnamespace
+            WHERE nsp.nspname = node_schema
+              AND rel.relname = table_name
+              AND pg_get_constraintdef(existing.oid) = con.def
+          ) THEN
+            EXECUTE format(
+              'ALTER TABLE %I.%I ADD %s',
+              node_schema, table_name, con.def
+            );
+          END IF;
+        END LOOP;
+      END IF;
     END LOOP;
   END LOOP;
 END;
@@ -354,10 +392,10 @@ BEGIN
 
   IF NEW.city_id = (SELECT id FROM central.Cities WHERE name='Karachi') THEN
     INSERT INTO karachi.Stores VALUES (NEW.*)
-    ON CONFLICT (id) DO UPDATE SET name=EXCLUDED.name, code=EXCLUDED.code, updated_by=EXCLUDED.updated_by, updated_at=EXCLUDED.updated_at;
+    ON CONFLICT (id) DO UPDATE SET name=EXCLUDED.name, code=EXCLUDED.code, city_id=EXCLUDED.city_id, updated_by=EXCLUDED.updated_by, updated_at=EXCLUDED.updated_at;
   ELSIF NEW.city_id = (SELECT id FROM central.Cities WHERE name='Lahore') THEN
     INSERT INTO lahore.Stores VALUES (NEW.*)
-    ON CONFLICT (id) DO UPDATE SET name=EXCLUDED.name, code=EXCLUDED.code, updated_by=EXCLUDED.updated_by, updated_at=EXCLUDED.updated_at;
+    ON CONFLICT (id) DO UPDATE SET name=EXCLUDED.name, code=EXCLUDED.code, city_id=EXCLUDED.city_id, updated_by=EXCLUDED.updated_by, updated_at=EXCLUDED.updated_at;
   END IF;
   RETURN NEW;
 END;
@@ -651,6 +689,54 @@ CREATE INDEX IF NOT EXISTS idx_lahore_order_items_order_id ON lahore.Order_Items
 CREATE INDEX IF NOT EXISTS idx_lahore_inventory_product_store ON lahore.Inventory(product_id, store_id);
 
 -- ==================================================
+-- 5b. GLOBAL VIEWS
+-- A global query reads these and does not name karachi or lahore.
+-- ==================================================
+CREATE OR REPLACE VIEW central.all_orders AS
+SELECT 'karachi'::TEXT AS node, o.*
+FROM karachi.orders o
+UNION ALL
+SELECT 'lahore'::TEXT AS node, o.*
+FROM lahore.orders o;
+
+CREATE OR REPLACE VIEW central.all_customers AS
+SELECT 'karachi'::TEXT AS node, c.*
+FROM karachi.customers c
+UNION ALL
+SELECT 'lahore'::TEXT AS node, c.*
+FROM lahore.customers c;
+
+CREATE OR REPLACE VIEW central.all_payments AS
+SELECT 'karachi'::TEXT AS node, p.*
+FROM karachi.payments p
+UNION ALL
+SELECT 'lahore'::TEXT AS node, p.*
+FROM lahore.payments p;
+
+CREATE OR REPLACE VIEW central.all_inventory AS
+SELECT 'karachi'::TEXT AS node, i.*
+FROM karachi.inventory i
+UNION ALL
+SELECT 'lahore'::TEXT AS node, i.*
+FROM lahore.inventory i;
+
+CREATE OR REPLACE VIEW central.product_sales AS
+SELECT
+  p.id AS product_id,
+  p.name AS product_name,
+  COALESCE(s.total_sales, 0)::NUMERIC(14,2) AS total_sales
+FROM central.products p
+LEFT JOIN (
+  SELECT product_id, SUM(quantity * price) AS total_sales
+  FROM (
+    SELECT product_id, quantity, price FROM karachi.order_items
+    UNION ALL
+    SELECT product_id, quantity, price FROM lahore.order_items
+  ) items
+  GROUP BY product_id
+) s ON s.product_id = p.id;
+
+-- ==================================================
 -- 6. SECURITY: Roles & Permissions
 -- ==================================================
 DO $$
@@ -679,6 +765,31 @@ GRANT SELECT ON ALL TABLES IN SCHEMA lahore TO lahore_readonly;
 GRANT USAGE ON SCHEMA central TO central_readonly;
 GRANT SELECT ON ALL TABLES IN SCHEMA central TO central_readonly;
 
+-- Group roles above cannot log in. These users can.
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'karachi_reader') THEN
+    CREATE ROLE karachi_reader LOGIN PASSWORD 'karachi_read';
+  ELSE
+    ALTER ROLE karachi_reader LOGIN PASSWORD 'karachi_read';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'lahore_reader') THEN
+    CREATE ROLE lahore_reader LOGIN PASSWORD 'lahore_read';
+  ELSE
+    ALTER ROLE lahore_reader LOGIN PASSWORD 'lahore_read';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'central_reader') THEN
+    CREATE ROLE central_reader LOGIN PASSWORD 'central_read';
+  ELSE
+    ALTER ROLE central_reader LOGIN PASSWORD 'central_read';
+  END IF;
+END;
+$$;
+
+GRANT karachi_readonly TO karachi_reader;
+GRANT lahore_readonly TO lahore_reader;
+GRANT central_readonly TO central_reader;
+
 -- ==================================================
 -- 7. BACKUP / RESTORE
 -- ==================================================
@@ -696,20 +807,9 @@ SELECT o.id, o.order_date, o.total_amount, c.name AS customer_name
 FROM karachi.Orders o
 JOIN karachi.Customers c ON o.customer_id=c.id;
 
--- Global query (total sales per product)
-WITH karachi_sales AS (
-  SELECT product_id, SUM(quantity*price) AS total_sales
-  FROM karachi.Order_Items
-  GROUP BY product_id
-), lahore_sales AS (
-  SELECT product_id, SUM(quantity*price) AS total_sales
-  FROM lahore.Order_Items
-  GROUP BY product_id
-)
-SELECT p.id, p.name, COALESCE(k.total_sales,0)+COALESCE(l.total_sales,0) AS total_sales
-FROM central.Products p
-LEFT JOIN karachi_sales k ON p.id=k.product_id
-LEFT JOIN lahore_sales l ON p.id=l.product_id
+-- Global query (total sales per product). The view unions both cities.
+SELECT product_id, product_name, total_sales
+FROM central.product_sales
 ORDER BY total_sales DESC;
 
 -- ==================================================
@@ -717,19 +817,25 @@ ORDER BY total_sales DESC;
 -- ==================================================
 -- ProcessOrder
 
+-- Drop the old 4-argument function so the new payment argument is not an overload.
+DROP FUNCTION IF EXISTS central.ProcessOrder(INT, INT, JSONB, INT);
+
 CREATE OR REPLACE FUNCTION central.ProcessOrder(
     p_store_id INT,
     p_customer_id INT,
     p_items JSONB,
-    p_created_by INT
+    p_created_by INT,
+    p_payment_method VARCHAR DEFAULT 'Cash'
 ) RETURNS UUID AS $$
 DECLARE
     v_global_order_id UUID := gen_random_uuid();
     v_total_amount NUMERIC := 0;
     v_item JSONB;
-  v_order_id INT;
-  v_store_order_id INT;
-  v_inventory_id INT;
+    v_order_id INT;
+    v_store_order_id INT;
+    v_inventory_id INT;
+    v_store_city_id INT;
+    v_customer_city_id INT;
 BEGIN
   IF p_items IS NULL OR jsonb_typeof(p_items) <> 'array' THEN
     RAISE EXCEPTION 'Order items must be a JSON array';
@@ -737,74 +843,101 @@ BEGIN
   IF jsonb_array_length(p_items) = 0 THEN
     RAISE EXCEPTION 'An order must contain at least one item';
   END IF;
+  IF p_payment_method NOT IN ('Cash', 'Card', 'Online') THEN
+    RAISE EXCEPTION 'Payment method must be Cash, Card, or Online';
+  END IF;
 
-    FOR v_item IN SELECT * FROM jsonb_array_elements(p_items)
-    LOOP
+  SELECT city_id INTO v_store_city_id
+  FROM central.Stores
+  WHERE id = p_store_id;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Store % does not exist', p_store_id;
+  END IF;
+
+  SELECT city_id INTO v_customer_city_id
+  FROM central.Customers
+  WHERE id = p_customer_id;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Customer % does not exist', p_customer_id;
+  END IF;
+
+  IF v_store_city_id IS DISTINCT FROM v_customer_city_id THEN
+    RAISE EXCEPTION 'Customer % is in a different city from store %', p_customer_id, p_store_id;
+  END IF;
+
+  FOR v_item IN SELECT * FROM jsonb_array_elements(p_items)
+  LOOP
     IF COALESCE((v_item->>'quantity')::INT, 0) <= 0 THEN
       RAISE EXCEPTION 'Item quantity must be positive';
     END IF;
     IF COALESCE((v_item->>'price')::NUMERIC, -1) < 0 THEN
       RAISE EXCEPTION 'Item price cannot be negative';
     END IF;
-        v_total_amount := v_total_amount + (v_item->>'quantity')::NUMERIC * (v_item->>'price')::NUMERIC;
-    END LOOP;
+    v_total_amount := v_total_amount + (v_item->>'quantity')::NUMERIC * (v_item->>'price')::NUMERIC;
+  END LOOP;
 
   PERFORM pg_advisory_xact_lock(1, p_store_id);
   SELECT COALESCE(MAX(store_order_id), 0) + 1 INTO v_store_order_id
   FROM central.Order_Mapping
   WHERE store_id = p_store_id;
 
-    INSERT INTO central.Order_Mapping(
-        store_id, store_order_id, customer_id, global_order_id, created_by, updated_by
+  INSERT INTO central.Order_Mapping(
+      store_id, store_order_id, customer_id, global_order_id, created_by, updated_by
+  )
+  VALUES (
+      p_store_id,
+      v_store_order_id,
+      p_customer_id,
+      v_global_order_id,
+      p_created_by,
+      p_created_by
+  );
+
+  INSERT INTO central.Orders(
+      global_order_id, store_id, customer_id, total_amount, created_by, updated_by
+  )
+  VALUES (
+      v_global_order_id, p_store_id, p_customer_id, v_total_amount, p_created_by, p_created_by
+  )
+  RETURNING id INTO v_order_id;
+
+  FOR v_item IN SELECT * FROM jsonb_array_elements(p_items)
+  LOOP
+    INSERT INTO central.Order_Items(
+        order_id, product_id, quantity, price, created_by, updated_by
     )
     VALUES (
-        p_store_id,
-    v_store_order_id,
-        p_customer_id,
-        v_global_order_id,
+        v_order_id,
+        (v_item->>'product_id')::INT,
+        (v_item->>'quantity')::INT,
+        (v_item->>'price')::NUMERIC,
         p_created_by,
         p_created_by
     );
 
-    INSERT INTO central.Orders(
-        global_order_id, store_id, customer_id, total_amount, created_by, updated_by
-    )
-    VALUES (
-        v_global_order_id, p_store_id, p_customer_id, v_total_amount, p_created_by, p_created_by
-      )
-      RETURNING id INTO v_order_id;
+    UPDATE central.Inventory
+    SET quantity = quantity - (v_item->>'quantity')::INT,
+        updated_at = now(),
+        updated_by = p_created_by
+    WHERE product_id = (v_item->>'product_id')::INT
+      AND store_id = p_store_id
+      AND quantity >= (v_item->>'quantity')::INT
+    RETURNING id INTO v_inventory_id;
 
-    FOR v_item IN SELECT * FROM jsonb_array_elements(p_items)
-    LOOP
-        INSERT INTO central.Order_Items(
-            order_id, product_id, quantity, price, created_by, updated_by
-        )
-        VALUES (
-          v_order_id,
-            (v_item->>'product_id')::INT,
-            (v_item->>'quantity')::INT,
-            (v_item->>'price')::NUMERIC,
-            p_created_by,
-            p_created_by
-        );
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'Insufficient inventory for product % at store %',
+        v_item->>'product_id', p_store_id;
+    END IF;
+  END LOOP;
 
-        UPDATE central.Inventory
-        SET quantity = quantity - (v_item->>'quantity')::INT,
-            updated_at = now(),
-            updated_by = p_created_by
-        WHERE product_id = (v_item->>'product_id')::INT
-          AND store_id = p_store_id
-          AND quantity >= (v_item->>'quantity')::INT
-        RETURNING id INTO v_inventory_id;
+  INSERT INTO central.Payments(
+      global_order_id, amount, method, status, created_by, updated_by
+  )
+  VALUES (
+      v_global_order_id, v_total_amount, p_payment_method, 'Paid', p_created_by, p_created_by
+  );
 
-        IF NOT FOUND THEN
-          RAISE EXCEPTION 'Insufficient inventory for product % at store %',
-            v_item->>'product_id', p_store_id;
-        END IF;
-    END LOOP;
-
-    RETURN v_global_order_id;
-
+  RETURN v_global_order_id;
 END;
 $$ LANGUAGE plpgsql;
 
@@ -813,7 +946,8 @@ $$ LANGUAGE plpgsql;
 --     1,
 --     10,
 --     '[{"product_id":1,"quantity":2,"price":100},{"product_id":2,"quantity":1,"price":200}]'::jsonb,
---     1
+--     1,
+--     'Cash'
 -- );
 
 -- Performance Monitoring

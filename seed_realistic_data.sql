@@ -20,7 +20,7 @@ SET maintenance_work_mem = '1GB';
 SET random_page_cost = 1.1;
 
 -- >>> EDIT THESE THREE LINES <<<
-SELECT set_config('seed.orders',    '9000000', false);  -- 100000 to test, 9000000 for ~50M rows
+SELECT set_config('seed.orders',    '10000', false);  -- 100000 to test, 9000000 for ~50M rows
 SELECT set_config('seed.customers', '250000',  false);
 SELECT set_config('seed.batch',     '200000',  false);
 
@@ -608,7 +608,7 @@ BEGIN
     p_schema
   ) USING v_city;
   EXECUTE format(
-    'INSERT INTO %I.inventory SELECT inv.* FROM central.inventory inv JOIN central.stores s ON s.id = inv.store_id WHERE s.city_id = $1',
+    'INSERT INTO %I.inventory i SELECT inv.* FROM central.inventory inv JOIN central.stores s ON s.id = inv.store_id WHERE s.city_id = $1',
     p_schema
   ) USING v_city;
 
