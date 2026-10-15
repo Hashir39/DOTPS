@@ -131,7 +131,7 @@ async function loadUser(userId) {
       FROM central.users u
       JOIN central.roles r ON r.id = u.role_id
       LEFT JOIN central.stores s ON s.id = u.store_id
-      LEFT JOIN central.cities c ON c.id = s.city_id
+      LEFT JOIN central.cities c ON c.id = COALESCE(s.city_id, u.city_id)
       WHERE u.id = $1
     `,
     [userId],
@@ -164,7 +164,7 @@ usersRouter.get('/', asyncRoute(async (req, res) => {
       FROM central.users u
       JOIN central.roles r ON r.id = u.role_id
       LEFT JOIN central.stores s ON s.id = u.store_id
-      LEFT JOIN central.cities c ON c.id = s.city_id
+      LEFT JOIN central.cities c ON c.id = COALESCE(s.city_id, u.city_id)
       ORDER BY u.username
     `),
     pool.query(`

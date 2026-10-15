@@ -12,7 +12,7 @@ export default function StoreDesk({ user, onLogout }) {
     <div className="register">
       <header className="topbar">
         <div>
-          <p className="brand">POS Mart</p>
+          <p className="brand">DOTMS</p>
           <strong>{user.storeName}</strong>
           <span>{user.city} · {user.fullName}</span>
         </div>

@@ -7,6 +7,7 @@ function placeLabel(user) {
   if (user.storeName) {
     return user.city ? `${user.storeName} · ${user.city}` : user.storeName
   }
+  if (user.city) return user.city
   return 'Head office · all cities'
 }
 
@@ -15,6 +16,7 @@ export default function App() {
   const [user, setUser] = useState(null)
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
@@ -78,10 +80,16 @@ export default function App() {
   return (
     <main className="screen">
       <section className="intro">
-        <p className="brand">POS Mart</p>
+        <p className="brand">DOTMS</p>
+        <p className="brand-full">Distributed OmniCommerce Transaction Processing System</p>
+        <img
+          className="mart"
+          src="/dotms-mart.jpg"
+          alt="A stocked grocery aisle"
+        />
         <h1>Sign in to your store</h1>
         <p className="lede">
-          Checkout for Karachi and Lahore. Your store decides the city. You do not pick a database.
+          Checkout for Karachi and Lahore branches.
         </p>
       </section>
 
@@ -127,15 +135,36 @@ export default function App() {
             />
 
             <label htmlFor="password">Password</label>
-            <input
-              id="password"
-              name="password"
-              type="password"
-              autoComplete="current-password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              required
-            />
+            <div className="password-field">
+              <input
+                id="password"
+                name="password"
+                type={showPassword ? 'text' : 'password'}
+                autoComplete="current-password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                required
+              />
+              <button
+                type="button"
+                className="view-password"
+                aria-pressed={showPassword}
+                aria-label={showPassword ? 'Hide password' : 'View password'}
+                onClick={() => setShowPassword((current) => !current)}
+              >
+                {showPassword ? (
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                    <path d="M1 1l22 22" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                  </svg>
+                ) : (
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                    <circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" strokeWidth="1.8" />
+                  </svg>
+                )}
+              </button>
+            </div>
 
             {error && <p className="error" role="alert">{error}</p>}
 

@@ -18,26 +18,36 @@ reportsRouter.use((req, res, next) => {
   next()
 })
 
+const EMPTY_CITY = `
+  SELECT NULL::int AS product_id, 0::bigint AS units, 0::numeric AS total_sales
+  WHERE false
+`
+
+function citySales(schema) {
+  return `
+    SELECT product_id, SUM(quantity) AS units, SUM(quantity * price) AS total_sales
+    FROM ${schema}.order_items
+    GROUP BY product_id
+  `
+}
+
 reportsRouter.get('/sales', (req, res) => {
+  const city = req.session.user.city
+  const karachiSql = city === 'Lahore' ? EMPTY_CITY : citySales('karachi')
+  const lahoreSql = city === 'Karachi' ? EMPTY_CITY : citySales('lahore')
+
   pool.query(`
     SELECT
       s.product_id,
       s.product_name,
       COALESCE(k.total_sales, 0)::numeric(14,2) AS karachi_sales,
       COALESCE(l.total_sales, 0)::numeric(14,2) AS lahore_sales,
-      s.total_sales
+      (COALESCE(k.total_sales, 0) + COALESCE(l.total_sales, 0))::numeric(14,2) AS total_sales,
+      (COALESCE(k.units, 0) + COALESCE(l.units, 0))::int AS units_sold
     FROM central.product_sales s
-    LEFT JOIN (
-      SELECT product_id, SUM(quantity * price) AS total_sales
-      FROM karachi.order_items
-      GROUP BY product_id
-    ) k ON k.product_id = s.product_id
-    LEFT JOIN (
-      SELECT product_id, SUM(quantity * price) AS total_sales
-      FROM lahore.order_items
-      GROUP BY product_id
-    ) l ON l.product_id = s.product_id
-    ORDER BY s.total_sales DESC, s.product_name
+    LEFT JOIN (${karachiSql}) k ON k.product_id = s.product_id
+    LEFT JOIN (${lahoreSql}) l ON l.product_id = s.product_id
+    ORDER BY total_sales DESC, s.product_name
   `).then((result) => {
     res.json({
       sales: result.rows.map((row) => ({
@@ -46,6 +56,7 @@ reportsRouter.get('/sales', (req, res) => {
         karachi: row.karachi_sales,
         lahore: row.lahore_sales,
         total: row.total_sales,
+        sold: row.units_sold,
       })),
     })
   }).catch((err) => {

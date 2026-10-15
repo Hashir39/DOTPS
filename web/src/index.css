@@ -29,10 +29,35 @@ body {
 }
 
 .brand {
-  margin: 0 0 auto;
+  margin: 0;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   font-size: 13px;
+}
+
+.intro .brand {
+  font-size: clamp(32px, 7vw, 48px);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  line-height: 0.9;
+}
+
+.brand-full {
+  margin: 14px 0 0;
+  max-width: 52ch;
+  color: #d6e2db;
+  font-size: 16px;
+}
+
+.mart {
+  flex: 1 1 auto;
+  width: min(100%, 720px);
+  min-height: 160px;
+  margin: 22px 0 28px;
+  object-fit: cover;
+  object-position: center 78%;
+  border-radius: 18px;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.28);
 }
 
 .intro h1 {
@@ -85,6 +110,35 @@ input:focus,
 select:focus {
   outline: 2px solid #16382c;
   border-color: #16382c;
+}
+
+.password-field {
+  position: relative;
+}
+
+.password-field input {
+  padding-right: 44px;
+}
+
+.password-field .view-password {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: 34px;
+  height: 34px;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #57534e;
+}
+
+.password-field .view-password svg {
+  width: 22px;
+  height: 22px;
 }
 
 .panel button,
@@ -164,8 +218,16 @@ dd {
     padding: 28px 20px 22px;
   }
 
-  .brand {
-    margin-bottom: 24px;
+  .intro .brand {
+    margin-bottom: 0;
+    font-size: 48px;
+  }
+
+  .mart {
+    flex: none;
+    height: 200px;
+    min-height: 0;
+    margin: 0 0 20px;
   }
 
   .intro h1 {
@@ -407,7 +469,7 @@ dd {
 
 .report table {
   width: 100%;
-  min-width: 520px;
+  min-width: 680px;
   margin-top: 16px;
   border-collapse: collapse;
   background: #fff;

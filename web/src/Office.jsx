@@ -25,24 +25,28 @@ export default function Office({ user, onLogout }) {
   }, [])
 
   const total = sales.reduce((sum, row) => sum + Number(row.total), 0)
+  const sold = sales.reduce((sum, row) => sum + Number(row.sold), 0)
+  const showKarachi = user.city !== 'Lahore'
+  const showLahore = user.city !== 'Karachi'
+  const showBoth = showKarachi && showLahore
 
   return (
     <div className="register">
       <header className="topbar">
         <div>
-          <p className="brand">POS Mart</p>
+          <p className="brand">DOTMS</p>
           <strong>Head office</strong>
-          <span>{user.role} · {user.fullName}</span>
+          <span>{user.role} · {user.fullName}{user.city ? ` · ${user.city}` : ''}</span>
         </div>
-        <nav>
-          <button
-            type="button"
-            className={view === 'sales' ? 'nav selected' : 'nav'}
-            onClick={() => setView('sales')}
-          >
-            Sales
-          </button>
-          {canCatalog && (
+        {canCatalog && (
+          <nav>
+            <button
+              type="button"
+              className={view === 'sales' ? 'nav selected' : 'nav'}
+              onClick={() => setView('sales')}
+            >
+              Sales
+            </button>
             <button
               type="button"
               className={view === 'products' ? 'nav selected' : 'nav'}
@@ -50,8 +54,6 @@ export default function Office({ user, onLogout }) {
             >
               Products
             </button>
-          )}
-          {canCatalog && (
             <button
               type="button"
               className={view === 'stores' ? 'nav selected' : 'nav'}
@@ -59,8 +61,6 @@ export default function Office({ user, onLogout }) {
             >
               Stores
             </button>
-          )}
-          {canCatalog && (
             <button
               type="button"
               className={view === 'users' ? 'nav selected' : 'nav'}
@@ -68,8 +68,8 @@ export default function Office({ user, onLogout }) {
             >
               Users
             </button>
-          )}
-        </nav>
+          </nav>
+        )}
         <button type="button" className="text-button" onClick={onLogout}>Sign out</button>
       </header>
 
@@ -79,24 +79,25 @@ export default function Office({ user, onLogout }) {
 
       {view === 'sales' && <section className="report">
         <h2>Sales by product</h2>
-        <p className="muted">Karachi and Lahore together, from central.product_sales.</p>
         {error && <p className="error" role="alert">{error}</p>}
         <table>
           <thead>
             <tr>
               <th>Product</th>
-              <th className="num">Karachi</th>
-              <th className="num">Lahore</th>
-              <th className="num">Total</th>
+              {showKarachi && <th className="num">Karachi</th>}
+              {showLahore && <th className="num">Lahore</th>}
+              {showBoth && <th className="num">Total</th>}
+              <th className="num">Total sales</th>
             </tr>
           </thead>
           <tbody>
             {sales.map((row) => (
               <tr key={row.productId}>
                 <td>{row.name}</td>
-                <td className="num">{rupees(row.karachi)}</td>
-                <td className="num">{rupees(row.lahore)}</td>
-                <td className="num">{rupees(row.total)}</td>
+                {showKarachi && <td className="num">{rupees(row.karachi)}</td>}
+                {showLahore && <td className="num">{rupees(row.lahore)}</td>}
+                {showBoth && <td className="num">{rupees(row.total)}</td>}
+                <td className="num">{Number(row.sold).toLocaleString('en-PK')}</td>
               </tr>
             ))}
           </tbody>
@@ -104,9 +105,10 @@ export default function Office({ user, onLogout }) {
             <tfoot>
               <tr>
                 <th>All products</th>
-                <td className="num">{rupees(sales.reduce((sum, row) => sum + Number(row.karachi), 0))}</td>
-                <td className="num">{rupees(sales.reduce((sum, row) => sum + Number(row.lahore), 0))}</td>
-                <th className="num">{rupees(total)}</th>
+                {showKarachi && <td className="num">{rupees(sales.reduce((sum, row) => sum + Number(row.karachi), 0))}</td>}
+                {showLahore && <td className="num">{rupees(sales.reduce((sum, row) => sum + Number(row.lahore), 0))}</td>}
+                {showBoth && <th className="num">{rupees(total)}</th>}
+                <th className="num">{sold.toLocaleString('en-PK')}</th>
               </tr>
             </tfoot>
           )}

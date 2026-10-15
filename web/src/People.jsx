@@ -223,7 +223,7 @@ export default function People({ selfId }) {
               <td>{person.username}</td>
               <td>{person.fullName}</td>
               <td>{person.role}</td>
-              <td>{person.storeName ? `${person.storeName} · ${person.city}` : 'Head office'}</td>
+              <td>{person.storeName ? `${person.storeName} · ${person.city}` : (person.city || 'Head office')}</td>
               <td className="num">
                 <button type="button" className="quiet" onClick={() => onEdit(person)}>Edit</button>
               </td>

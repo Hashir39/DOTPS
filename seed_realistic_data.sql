@@ -361,7 +361,7 @@ BEGIN
   INSERT INTO central.users (username, email, password_hash, full_name, role_id, store_id)
   SELECT
     lower(regexp_replace(s.code, '[^A-Za-z0-9]', '', 'g')) || '.' || staff.kind,
-    lower(staff.kind) || '.' || lower(replace(s.code, ' ', '')) || '@posmart.pk',
+    lower(staff.kind) || '.' || lower(replace(s.code, ' ', '')) || '@dotms.pk',
     v_hash,
     staff.names[1 + ((s.id + staff.ord) % array_length(staff.names, 1))],
     r.id,
@@ -378,7 +378,7 @@ BEGIN
   INSERT INTO central.users (username, email, password_hash, full_name, role_id, store_id)
   VALUES (
     'hq.admin',
-    'admin@posmart.pk',
+    'admin@dotms.pk',
     v_hash,
     'Head Office Admin',
     (SELECT id FROM central.roles WHERE role_name = 'Super Admin'),

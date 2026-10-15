@@ -22,7 +22,7 @@ const LOGIN_SQL = `
   FROM central.users u
   JOIN central.roles r ON r.id = u.role_id
   LEFT JOIN central.stores s ON s.id = u.store_id
-  LEFT JOIN central.cities c ON c.id = s.city_id
+  LEFT JOIN central.cities c ON c.id = COALESCE(s.city_id, u.city_id)
   WHERE lower(u.username) = $1
     AND u.password_hash = public.crypt($2::text, u.password_hash)
 `

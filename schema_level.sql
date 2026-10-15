@@ -1,5 +1,5 @@
 -- ==================================================
--- DATABASE: pos_ddb (Distributed OmniCommerce Transaction Processing System)
+-- DATABASE: pos_ddb (DOTMS — Distributed OmniCommerce Transaction Processing System)
 -- ==================================================
 
 -- Create database
@@ -84,8 +84,11 @@ CREATE TABLE IF NOT EXISTS Users (
   password_hash TEXT NOT NULL,
   full_name VARCHAR(100),
   role_id INT REFERENCES central.Roles(id),
-  store_id INT REFERENCES central.Stores(id)
+  store_id INT REFERENCES central.Stores(id),
+  city_id INT REFERENCES central.Cities(id)
 );
+
+ALTER TABLE Users ADD COLUMN IF NOT EXISTS city_id INT REFERENCES Cities(id);
 
 -- Products
 CREATE TABLE IF NOT EXISTS Products (
