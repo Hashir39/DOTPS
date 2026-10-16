@@ -467,6 +467,15 @@ dd {
   font-size: 22px;
 }
 
+.report table.orders {
+  min-width: 980px;
+}
+
+.report td.items {
+  max-width: 320px;
+  white-space: normal;
+}
+
 .report table {
   width: 100%;
   min-width: 680px;
@@ -484,6 +493,32 @@ dd {
 
 .report .num {
   text-align: right;
+}
+
+.report tr.picked {
+  background: #e7efe9;
+}
+
+.report tbody tr {
+  cursor: pointer;
+}
+
+.pager {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.pager button,
+.report .pager button {
+  width: auto;
+  margin: 0;
+}
+
+.report .ticket {
+  max-width: 520px;
+  margin-top: 16px;
 }
 
 .report tfoot th,

@@ -1,5 +1,6 @@
 import { Router } from 'express'
 import { databaseErrorMessage, pool } from './db.js'
+import { listOrders, orderDetail } from './orderList.js'
 
 export const reportsRouter = Router()
 
@@ -59,6 +60,52 @@ reportsRouter.get('/sales', (req, res) => {
         sold: row.units_sold,
       })),
     })
+  }).catch((err) => {
+    console.error(err)
+    res.status(500).json({ error: databaseErrorMessage(err) })
+  })
+})
+
+function superAdmin(req, res) {
+  if (req.session.user.role === 'Super Admin') return true
+  res.status(403).json({ error: 'Only a super admin can open every order.' })
+  return false
+}
+
+function pageNumber(req) {
+  const page = Number(req.query.page)
+  return Number.isInteger(page) && page > 0 ? page : 1
+}
+
+function orderId(req, res) {
+  const id = Number(req.params.id)
+  if (!Number.isInteger(id) || id <= 0) {
+    res.status(400).json({ error: 'That sale number is not valid.' })
+    return null
+  }
+  return id
+}
+
+reportsRouter.get('/orders', (req, res) => {
+  if (!superAdmin(req, res)) return
+  listOrders('central', pageNumber(req)).then((payload) => {
+    res.json(payload)
+  }).catch((err) => {
+    console.error(err)
+    res.status(500).json({ error: databaseErrorMessage(err) })
+  })
+})
+
+reportsRouter.get('/orders/:id', (req, res) => {
+  if (!superAdmin(req, res)) return
+  const id = orderId(req, res)
+  if (!id) return
+  orderDetail('central', id).then((order) => {
+    if (!order) {
+      res.status(404).json({ error: 'That sale is not on file.' })
+      return
+    }
+    res.json({ order })
   }).catch((err) => {
     console.error(err)
     res.status(500).json({ error: databaseErrorMessage(err) })

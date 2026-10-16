@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { request, rupees } from './api.js'
 import Catalog from './Catalog.jsx'
+import OrderBook from './OrderBook.jsx'
 import Stores from './Stores.jsx'
 import People from './People.jsx'
 
@@ -49,6 +50,13 @@ export default function Office({ user, onLogout }) {
             </button>
             <button
               type="button"
+              className={view === 'orders' ? 'nav selected' : 'nav'}
+              onClick={() => setView('orders')}
+            >
+              Orders
+            </button>
+            <button
+              type="button"
               className={view === 'products' ? 'nav selected' : 'nav'}
               onClick={() => setView('products')}
             >
@@ -72,6 +80,15 @@ export default function Office({ user, onLogout }) {
         )}
         <button type="button" className="text-button" onClick={onLogout}>Sign out</button>
       </header>
+
+      {canCatalog && view === 'orders' && (
+        <OrderBook
+          title="All orders"
+          note="Every store in Karachi and Lahore."
+          listPath="/api/reports/orders"
+          showCity
+        />
+      )}
 
       {canCatalog && view === 'products' && <Catalog />}
       {canCatalog && view === 'stores' && <Stores />}

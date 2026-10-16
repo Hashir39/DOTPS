@@ -1,5 +1,6 @@
 import { Router } from 'express'
 import { databaseErrorMessage, pool } from './db.js'
+import { listOrders, orderDetail } from './orderList.js'
 
 export const registerRouter = Router()
 
@@ -282,6 +283,34 @@ registerRouter.get('/orders', checkout, asyncRoute(async (req, res) => {
       paymentMethod: row.payment_method,
     })),
   })
+}))
+
+const cityHistory = requireRole(
+  new Set(['Store Manager']),
+  'Only a store manager can open the city order list.',
+)
+
+function pageNumber(req) {
+  const page = Number(req.query.page)
+  return Number.isInteger(page) && page > 0 ? page : 1
+}
+
+registerRouter.get('/city-orders', cityHistory, asyncRoute(async (req, res) => {
+  res.json(await listOrders(citySchema(req.session.user), pageNumber(req)))
+}))
+
+registerRouter.get('/city-orders/:id', cityHistory, asyncRoute(async (req, res) => {
+  const orderId = Number(req.params.id)
+  if (!Number.isInteger(orderId) || orderId <= 0) {
+    res.status(400).json({ error: 'That sale number is not valid.' })
+    return
+  }
+  const order = await orderDetail(citySchema(req.session.user), orderId)
+  if (!order) {
+    res.status(404).json({ error: 'That sale is not in this city.' })
+    return
+  }
+  res.json({ order })
 }))
 
 registerRouter.get('/orders/:id', checkout, asyncRoute(async (req, res) => {

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import OrderBook from './OrderBook.jsx'
 import Orders from './Orders.jsx'
 import Register from './Register.jsx'
 import Stock from './Stock.jsx'
@@ -6,6 +7,7 @@ import Stock from './Stock.jsx'
 export default function StoreDesk({ user, onLogout }) {
   const canSell = user.role === 'Cashier' || user.role === 'Store Manager'
   const canStock = user.role === 'Inventory Clerk' || user.role === 'Store Manager'
+  const canCityOrders = user.role === 'Store Manager'
   const [view, setView] = useState(canSell ? 'register' : 'stock')
 
   return (
@@ -35,6 +37,15 @@ export default function StoreDesk({ user, onLogout }) {
               Today
             </button>
           )}
+          {canCityOrders && (
+            <button
+              type="button"
+              className={view === 'history' ? 'nav selected' : 'nav'}
+              onClick={() => setView('history')}
+            >
+              Orders
+            </button>
+          )}
           {canStock && (
             <button
               type="button"
@@ -54,6 +65,13 @@ export default function StoreDesk({ user, onLogout }) {
         </div>
       )}
       {canSell && view === 'orders' && <Orders />}
+      {canCityOrders && view === 'history' && (
+        <OrderBook
+          title={`${user.city} orders`}
+          note={`Every store in ${user.city}.`}
+          listPath="/api/city-orders"
+        />
+      )}
       {canStock && view === 'stock' && <Stock />}
     </div>
   )
