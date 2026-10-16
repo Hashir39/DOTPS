@@ -67,8 +67,8 @@ export default function StoreDesk({ user, onLogout }) {
       {canSell && view === 'orders' && <Orders />}
       {canCityOrders && view === 'history' && (
         <OrderBook
-          title={`${user.city} orders`}
-          note={`Every store in ${user.city}.`}
+          title={`${user.storeName} orders`}
+          note={`Sales at ${user.storeName} only.`}
           listPath="/api/city-orders"
         />
       )}

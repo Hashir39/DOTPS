@@ -287,7 +287,7 @@ registerRouter.get('/orders', checkout, asyncRoute(async (req, res) => {
 
 const cityHistory = requireRole(
   new Set(['Store Manager']),
-  'Only a store manager can open the city order list.',
+  'Only a store manager can open this store\'s order list.',
 )
 
 function pageNumber(req) {
@@ -296,7 +296,8 @@ function pageNumber(req) {
 }
 
 registerRouter.get('/city-orders', cityHistory, asyncRoute(async (req, res) => {
-  res.json(await listOrders(citySchema(req.session.user), pageNumber(req)))
+  const user = req.session.user
+  res.json(await listOrders(citySchema(user), pageNumber(req), user.storeId))
 }))
 
 registerRouter.get('/city-orders/:id', cityHistory, asyncRoute(async (req, res) => {
@@ -305,9 +306,10 @@ registerRouter.get('/city-orders/:id', cityHistory, asyncRoute(async (req, res) 
     res.status(400).json({ error: 'That sale number is not valid.' })
     return
   }
-  const order = await orderDetail(citySchema(req.session.user), orderId)
+  const user = req.session.user
+  const order = await orderDetail(citySchema(user), orderId, user.storeId)
   if (!order) {
-    res.status(404).json({ error: 'That sale is not in this city.' })
+    res.status(404).json({ error: 'That sale is not at this store.' })
     return
   }
   res.json({ order })

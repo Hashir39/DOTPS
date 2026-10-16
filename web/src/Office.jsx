@@ -30,6 +30,16 @@ export default function Office({ user, onLogout }) {
   const showKarachi = user.city !== 'Lahore'
   const showLahore = user.city !== 'Karachi'
   const showBoth = showKarachi && showLahore
+  const orderTitle = user.storeName
+    ? `${user.storeName} orders`
+    : user.city
+      ? `${user.city} orders`
+      : 'All orders'
+  const orderNote = user.storeName
+    ? `Sales at ${user.storeName} only.`
+    : user.city
+      ? `Every store in ${user.city}.`
+      : 'Every store in Karachi and Lahore.'
 
   return (
     <div className="register">
@@ -39,54 +49,56 @@ export default function Office({ user, onLogout }) {
           <strong>Head office</strong>
           <span>{user.role} · {user.fullName}{user.city ? ` · ${user.city}` : ''}</span>
         </div>
-        {canCatalog && (
-          <nav>
-            <button
-              type="button"
-              className={view === 'sales' ? 'nav selected' : 'nav'}
-              onClick={() => setView('sales')}
-            >
-              Sales
-            </button>
-            <button
-              type="button"
-              className={view === 'orders' ? 'nav selected' : 'nav'}
-              onClick={() => setView('orders')}
-            >
-              Orders
-            </button>
-            <button
-              type="button"
-              className={view === 'products' ? 'nav selected' : 'nav'}
-              onClick={() => setView('products')}
-            >
-              Products
-            </button>
-            <button
-              type="button"
-              className={view === 'stores' ? 'nav selected' : 'nav'}
-              onClick={() => setView('stores')}
-            >
-              Stores
-            </button>
-            <button
-              type="button"
-              className={view === 'users' ? 'nav selected' : 'nav'}
-              onClick={() => setView('users')}
-            >
-              Users
-            </button>
-          </nav>
-        )}
+        <nav>
+          <button
+            type="button"
+            className={view === 'sales' ? 'nav selected' : 'nav'}
+            onClick={() => setView('sales')}
+          >
+            Sales
+          </button>
+          <button
+            type="button"
+            className={view === 'orders' ? 'nav selected' : 'nav'}
+            onClick={() => setView('orders')}
+          >
+            Orders
+          </button>
+          {canCatalog && (
+            <>
+              <button
+                type="button"
+                className={view === 'products' ? 'nav selected' : 'nav'}
+                onClick={() => setView('products')}
+              >
+                Products
+              </button>
+              <button
+                type="button"
+                className={view === 'stores' ? 'nav selected' : 'nav'}
+                onClick={() => setView('stores')}
+              >
+                Stores
+              </button>
+              <button
+                type="button"
+                className={view === 'users' ? 'nav selected' : 'nav'}
+                onClick={() => setView('users')}
+              >
+                Users
+              </button>
+            </>
+          )}
+        </nav>
         <button type="button" className="text-button" onClick={onLogout}>Sign out</button>
       </header>
 
-      {canCatalog && view === 'orders' && (
+      {view === 'orders' && (
         <OrderBook
-          title="All orders"
-          note="Every store in Karachi and Lahore."
+          title={orderTitle}
+          note={orderNote}
           listPath="/api/reports/orders"
-          showCity
+          showCity={!user.city && !user.storeName}
         />
       )}
 

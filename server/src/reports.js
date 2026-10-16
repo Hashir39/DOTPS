@@ -66,10 +66,23 @@ reportsRouter.get('/sales', (req, res) => {
   })
 })
 
-function superAdmin(req, res) {
-  if (req.session.user.role === 'Super Admin') return true
-  res.status(403).json({ error: 'Only a super admin can open every order.' })
-  return false
+const CITY_SCHEMA = {
+  Karachi: 'karachi',
+  Lahore: 'lahore',
+}
+
+function orderScope(user) {
+  if (user.role === 'Super Admin') return { schema: 'central', storeId: null }
+  if (user.role !== 'Accountant') return null
+  if (user.storeId) {
+    const schema = CITY_SCHEMA[user.city]
+    return schema ? { schema, storeId: user.storeId } : null
+  }
+  if (user.city) {
+    const schema = CITY_SCHEMA[user.city]
+    return schema ? { schema, storeId: null } : null
+  }
+  return { schema: 'central', storeId: null }
 }
 
 function pageNumber(req) {
@@ -87,8 +100,12 @@ function orderId(req, res) {
 }
 
 reportsRouter.get('/orders', (req, res) => {
-  if (!superAdmin(req, res)) return
-  listOrders('central', pageNumber(req)).then((payload) => {
+  const scope = orderScope(req.session.user)
+  if (!scope) {
+    res.status(403).json({ error: 'Only head office can open the order list.' })
+    return
+  }
+  listOrders(scope.schema, pageNumber(req), scope.storeId).then((payload) => {
     res.json(payload)
   }).catch((err) => {
     console.error(err)
@@ -97,12 +114,16 @@ reportsRouter.get('/orders', (req, res) => {
 })
 
 reportsRouter.get('/orders/:id', (req, res) => {
-  if (!superAdmin(req, res)) return
+  const scope = orderScope(req.session.user)
+  if (!scope) {
+    res.status(403).json({ error: 'Only head office can open the order list.' })
+    return
+  }
   const id = orderId(req, res)
   if (!id) return
-  orderDetail('central', id).then((order) => {
+  orderDetail(scope.schema, id, scope.storeId).then((order) => {
     if (!order) {
-      res.status(404).json({ error: 'That sale is not on file.' })
+      res.status(404).json({ error: 'That sale is not in this account\'s area.' })
       return
     }
     res.json({ order })

@@ -26,12 +26,16 @@ function mapRow(row) {
   }
 }
 
-export async function listOrders(schema, page) {
+export async function listOrders(schema, page, storeId = null) {
   assertSchema(schema)
   const safePage = Number.isInteger(page) && page > 0 ? page : 1
   const offset = (safePage - 1) * PAGE_SIZE
+  const storeFilter = storeId ? 'WHERE o.store_id = $3' : ''
   const [count, result] = await Promise.all([
-    pool.query(`SELECT count(*)::int AS n FROM ${schema}.orders`),
+    pool.query(
+      `SELECT count(*)::int AS n FROM ${schema}.orders o ${storeId ? 'WHERE o.store_id = $1' : ''}`,
+      storeId ? [storeId] : [],
+    ),
     pool.query(
       `
         SELECT
@@ -58,10 +62,11 @@ export async function listOrders(schema, page) {
           LEFT JOIN ${schema}.products p ON p.id = oi.product_id
           WHERE oi.order_id = o.id
         ) bought ON true
+        ${storeFilter}
         ORDER BY o.id DESC
         LIMIT $1 OFFSET $2
       `,
-      [PAGE_SIZE, offset],
+      storeId ? [PAGE_SIZE, offset, storeId] : [PAGE_SIZE, offset],
     ),
   ])
   return {
@@ -72,7 +77,7 @@ export async function listOrders(schema, page) {
   }
 }
 
-export async function orderDetail(schema, orderId) {
+export async function orderDetail(schema, orderId, storeId = null) {
   assertSchema(schema)
   const order = await pool.query(
     `
@@ -101,8 +106,9 @@ export async function orderDetail(schema, orderId) {
         LIMIT 1
       ) pay ON true
       WHERE o.id = $1
+        ${storeId ? 'AND o.store_id = $2' : ''}
     `,
-    [orderId],
+    storeId ? [orderId, storeId] : [orderId],
   )
   const row = order.rows[0]
   if (!row) return null
