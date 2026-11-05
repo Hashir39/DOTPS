@@ -92,7 +92,7 @@ export default function Catalog() {
   return (
     <section className="report catalog">
       <h2>{editingId ? 'Edit product' : 'Add a product'}</h2>
-      <p className="muted">Saved in central.products. The trigger copies the row to Karachi and Lahore.</p>
+  
       <form className="catalog-form" onSubmit={onSave}>
         <div>
           <label htmlFor="product-sku">SKU</label>

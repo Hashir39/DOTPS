@@ -89,7 +89,7 @@ export default function Stores() {
   return (
     <section className="report catalog">
       <h2>{editingId ? 'Edit store' : 'Add a store'}</h2>
-      <p className="muted">Saved in central.stores. The trigger copies it to that city only.</p>
+     
       <form className="catalog-form stores-form" onSubmit={onSave}>
         <div>
           <label htmlFor="store-code">Code</label>

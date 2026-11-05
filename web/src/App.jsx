@@ -123,61 +123,78 @@ export default function App() {
         )}
 
         {phase === 'ready' && !user && (
-          <form onSubmit={onSubmit}>
-            <label htmlFor="username">Username</label>
-            <input
-              id="username"
-              name="username"
-              autoComplete="username"
-              value={username}
-              onChange={(event) => setUsername(event.target.value)}
-              required
-            />
+          <div className="signin">
+            <header>
+              <p className="eyebrow">Staff</p>
+              <h2>Sign in</h2>
+              <p className="muted">Your account opens the register, stock, or head office.</p>
+            </header>
 
-            <label htmlFor="password">Password</label>
-            <div className="password-field">
+            <form onSubmit={onSubmit}>
+              <label htmlFor="username">Username</label>
               <input
-                id="password"
-                name="password"
-                type={showPassword ? 'text' : 'password'}
-                autoComplete="current-password"
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
+                id="username"
+                name="username"
+                autoComplete="username"
+                value={username}
+                onChange={(event) => setUsername(event.target.value)}
                 required
               />
-              <button
-                type="button"
-                className="view-password"
-                aria-pressed={showPassword}
-                aria-label={showPassword ? 'Hide password' : 'View password'}
-                onClick={() => setShowPassword((current) => !current)}
-              >
-                {showPassword ? (
-                  <svg viewBox="0 0 24 24" aria-hidden="true">
-                    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-                    <path d="M1 1l22 22" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-                  </svg>
-                ) : (
-                  <svg viewBox="0 0 24 24" aria-hidden="true">
-                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-                    <circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" strokeWidth="1.8" />
-                  </svg>
-                )}
+
+              <label htmlFor="password">Password</label>
+              <div className="password-field">
+                <input
+                  id="password"
+                  name="password"
+                  type={showPassword ? 'text' : 'password'}
+                  autoComplete="current-password"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  required
+                />
+                <button
+                  type="button"
+                  className="view-password"
+                  aria-pressed={showPassword}
+                  aria-label={showPassword ? 'Hide password' : 'View password'}
+                  onClick={() => setShowPassword((current) => !current)}
+                >
+                  {showPassword ? (
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                      <path d="M1 1l22 22" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                    </svg>
+                  ) : (
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                      <circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" strokeWidth="1.8" />
+                    </svg>
+                  )}
+                </button>
+              </div>
+
+              {error && <p className="error" role="alert">{error}</p>}
+
+              <button type="submit" disabled={submitting}>
+                {submitting ? 'Signing in…' : 'Sign in'}
               </button>
-            </div>
+            </form>
 
-            {error && <p className="error" role="alert">{error}</p>}
-
-            <button type="submit" disabled={submitting}>
-              {submitting ? 'Signing in…' : 'Sign in'}
-            </button>
-            <p className="hint">
-              Register: <span>khinnz01.cashier1</span> / <span>Demo@12345</span>.
-              Lahore: <span>lheglb01.cashier1</span> / <span>Demo@12345</span>.
-              Stock: <span>khinnz01.stock</span> / <span>Demo@12345</span>.
-              Head office: <span>hq.admin</span> / <span>Demo@12345</span>.
-            </p>
-          </form>
+            <ul className="roles">
+              <li>
+                <strong>Cashier</strong>
+                <span>Register and today’s orders</span>
+              </li>
+              <li>
+                <strong>Inventory</strong>
+                <span>Stock for one store</span>
+              </li>
+              <li>
+                <strong>Head office</strong>
+                <span>Sales for Karachi and Lahore</span>
+              </li>
+            </ul>
+          </div>
         )}
       </section>
     </main>

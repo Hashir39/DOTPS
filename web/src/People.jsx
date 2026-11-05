@@ -125,7 +125,6 @@ export default function People({ selfId }) {
   return (
     <section className="report catalog">
       <h2>{editingId ? 'Edit user' : 'Add a user'}</h2>
-      <p className="muted">Saved in central.users. A store role takes that store's city. Head office has no store.</p>
       <form className="catalog-form people-form" onSubmit={onSave}>
         <div>
           <label htmlFor="user-username">Username</label>
